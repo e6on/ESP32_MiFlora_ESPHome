@@ -1,5 +1,6 @@
 # ESP32_MiFlora_ESPHome
 ESP32 BLE client for XIaomi Mi Flora Plant sensors using ESPHome.
+
 ESPHome config for ESP32 to monitor XIaomi Mi Flora Plant sensors. ESP32 can be powered with LiPo battery and battery level is read from ADC pin. Home Assistant can directly read ESP32 battery level and Mi Flora sensor measurements without the need of MQTT server.
 
 ## Hardware & Software used
