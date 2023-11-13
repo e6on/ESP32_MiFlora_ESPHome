@@ -1,4 +1,4 @@
-If you prefer to use MQTT instead of ESPHome then check this - https://github.com/e6on/ESP32_MiFlora_MQTT
+If you prefer to use MQTT instead of ESPHome then check this - [ESP32_MiFlora_MQTT](https://github.com/e6on/ESP32_MiFlora_MQTT)
 
 # ESP32_MiFlora_ESPHome
 ESP32 BLE client for XIaomi Mi Flora Plant sensors using ESPHome.
