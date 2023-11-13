@@ -1,0 +1,213 @@
+esphome:
+  name: huzzah32
+  friendly_name: HUZZAH32
+
+  on_shutdown:
+    priority: -100
+    then:
+      - if:
+          condition:
+            - binary_sensor.is_on: all_updates_received
+          then:
+            - logger.log: "Data from all sensors received"
+          else:
+            - logger.log: "One or more sensor updates missing"
+
+      # Reset data update sensors states
+      - binary_sensor.template.publish:
+          id: MiFlora_Temperature_received
+          state: OFF
+      - binary_sensor.template.publish:
+          id: MiFlora_Moisture_received
+          state: OFF
+      - binary_sensor.template.publish:
+          id: MiFlora_Illuminance_received
+          state: OFF
+      - binary_sensor.template.publish:
+          id: MiFlora_Soil_Conductivity_received
+          state: OFF
+      - binary_sensor.template.publish:
+          id: HUZZAH32_Battery_voltage_received
+          state: OFF
+      - binary_sensor.template.publish:
+          id: HUZZAH32_Battery_Level_received
+          state: OFF
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+  level: DEBUG
+  
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "xxxx" # !! Replace with your key !!
+
+ota:
+  password: "xxxx" # !! Replace with your password !!
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Huzzah32 Fallback Hotspot"
+    password: "xxx" # !! Replace with your password !!
+
+captive_portal:
+
+esp32_ble_tracker:
+  scan_parameters:
+    active: false
+
+binary_sensor:
+  # Xiaomi MiFlora Temperature
+  - platform: template
+    name: MiFlora Temperature updated
+    id: MiFlora_Temperature_received
+    internal: True 
+  # Xiaomi MiFlora Moisture
+  - platform: template
+    name: MiFlora Moisture updated
+    id: MiFlora_Moisture_received
+    internal: True 
+  # Xiaomi MiFlora Illuminance
+  - platform: template
+    name: MiFlora Illuminance updated
+    id: MiFlora_Illuminance_received
+    internal: True
+  # Xiaomi MiFlora Soil Conductivity
+  - platform: template
+    name: MiFlora Soil Conductivity updated
+    id: MiFlora_Soil_Conductivity_received
+    internal: True
+  # HUZZAH32 Battery voltage
+  - platform: template
+    name: HUZZAH32 Battery voltage updated
+    id: HUZZAH32_Battery_voltage_received
+    internal: True
+  # HUZZAH32 Battery Level
+  - platform: template
+    name: HUZZAH32 Battery Level updated
+    id: HUZZAH32_Battery_Level_received
+    internal: True
+  # All updates
+  - platform: template
+    name: Updates from all sensors received
+    id: all_updates_received
+    icon: mdi:database-refresh-outline
+    # If all sensors data is received go to deep sleep.
+    lambda: |-
+      return
+      id(MiFlora_Temperature_received).state &&
+      id(MiFlora_Moisture_received).state &&
+      id(MiFlora_Illuminance_received).state &&
+      id(MiFlora_Soil_Conductivity_received).state &&
+      id(HUZZAH32_Battery_voltage_received).state &&
+      id(HUZZAH32_Battery_Level_received).state;
+    on_press:
+      then:
+        - logger.log: 
+            format: "All sensors updated after %.1f seconds of uptime. Entering deep sleep."
+            args: ['id(uptime_seconds).state']
+        - delay: 100ms
+        - deep_sleep.enter: 
+            id: deep_sleep_1
+
+sensor:
+  # Uptime sensor
+  - platform: uptime
+    id: uptime_seconds
+    name: Uptime sensor
+    device_class: duration
+    update_interval: 1s
+    accuracy_decimals: 1
+    unit_of_measurement: s
+  # Xiaomi MiFlora  
+  - platform: xiaomi_hhccjcy01
+    id: Xiaomi_MiFlora
+    mac_address: C4:7C:8D:6A:E2:1B # !! Replace with your MiFlora mac address !!
+    temperature:
+      name: "Xiaomi MiFlora Temperature"
+      on_value:
+        then:
+          - binary_sensor.template.publish:
+              id: MiFlora_Temperature_received
+              state: ON
+    moisture:
+      name: "Xiaomi MiFlora Moisture"
+      on_value:
+        then:
+          - binary_sensor.template.publish:
+              id: MiFlora_Moisture_received
+              state: ON
+    illuminance:
+      name: "Xiaomi MiFlora Illuminance"
+      on_value:
+        then:
+          - binary_sensor.template.publish:
+              id: MiFlora_Illuminance_received
+              state: ON
+    conductivity:
+      name: "Xiaomi MiFlora Soil Conductivity"
+      on_value:
+        then:
+          - binary_sensor.template.publish:
+              id: MiFlora_Soil_Conductivity_received
+              state: ON
+#    battery_level:
+#      name: "Xiaomi MiFlora Battery Level"
+
+  # HUZZAH32 Battery voltage
+  - platform: adc
+    id: esp32_batt_voltage
+    name: "HUZZAH32 Battery voltage"
+    device_class: voltage
+    unit_of_measurement: V
+    on_value:
+      then:
+        - binary_sensor.template.publish:
+            id: HUZZAH32_Battery_voltage_received
+            state: ON
+    pin: GPIO35
+    accuracy_decimals: 2
+    update_interval: 60s
+    attenuation: auto
+    filters:
+      - multiply: 2.0  # The voltage divider requires us to multiply by 2
+  
+  # Convert HUZZAH32 Battery voltage to a battery level (%)
+  - platform: copy
+    source_id: esp32_batt_voltage
+    id: esp32_batt_level
+    internal: false 
+    icon: "mdi:battery"
+    name: HUZZAH32 Battery Level
+    device_class: battery
+    on_value:
+      then:
+        - binary_sensor.template.publish:
+            id: HUZZAH32_Battery_Level_received
+            state: ON
+    unit_of_measurement: '%'
+    accuracy_decimals: 1
+    filters:
+      # Map from voltage to Battery level
+      - calibrate_linear:
+          - 3.0 -> 0 # Set 3.0 to 0% even though it can go lower (2.4V), for life extention. There's not much capacity below this anyway.
+          - 4.05 -> 100 # Set 4.05 to 100% even though it can go higher (~4.2V), for life extention.
+      # Overide values less than 0% and more than 100%
+      - lambda: |
+          if (x < 0) return 0; 
+          else if (x > 100) return 100;
+          else return ceil(x / 5) * 5;
+
+deep_sleep:
+  id: deep_sleep_1
+  run_duration: 15min
+  sleep_duration: 60min
