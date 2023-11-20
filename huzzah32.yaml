@@ -15,6 +15,9 @@ esphome:
 
       # Reset data update sensors states
       - binary_sensor.template.publish:
+          id: HUZZAH32_status
+          state: OFF
+      - binary_sensor.template.publish:
           id: MiFlora_Temperature_received
           state: OFF
       - binary_sensor.template.publish:
@@ -45,10 +48,10 @@ logger:
 # Enable Home Assistant API
 api:
   encryption:
-    key: "xxxx" # !! Replace with your key !!
+    key: "xxx" # !! Replace !!
 
 ota:
-  password: "xxxx" # !! Replace with your password !!
+  password: "xxx" # !! Replace !!
 
 wifi:
   ssid: !secret wifi_ssid
@@ -57,7 +60,7 @@ wifi:
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "Huzzah32 Fallback Hotspot"
-    password: "xxx" # !! Replace with your password !!
+    password: "xxx" # !! Replace !!
 
 captive_portal:
 
@@ -66,6 +69,11 @@ esp32_ble_tracker:
     active: false
 
 binary_sensor:
+  # HUZZAH32 power status
+  - platform: template
+    name: HUZZAH32 power status
+    id: HUZZAH32_status
+    icon: mdi:power
   # Xiaomi MiFlora Temperature
   - platform: template
     name: MiFlora Temperature updated
@@ -128,10 +136,15 @@ sensor:
     update_interval: 1s
     accuracy_decimals: 1
     unit_of_measurement: s
+    on_value:
+      then:
+        - binary_sensor.template.publish:
+            id: HUZZAH32_status
+            state: ON
   # Xiaomi MiFlora  
   - platform: xiaomi_hhccjcy01
     id: Xiaomi_MiFlora
-    mac_address: C4:7C:8D:6A:E2:1B # !! Replace with your MiFlora mac address !!
+    mac_address: C4:7C:8D:6A:E2:1B
     temperature:
       name: "Xiaomi MiFlora Temperature"
       on_value:
